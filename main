@@ -1,0 +1,263 @@
+#! /usr/bin/env bash
+#==============================================================================#
+# title             :  update and upgrade
+# description       : Script to update and patch servers.
+# author            : Paul Abel
+# date              : 30/05/2023
+# version           : 2.0
+# usage             : ./main
+# notes             : In Development.
+# bash_version      : 5.0.17(1)-release
+# licence           :
+#==============================================================================#
+
+### DEBUG
+#set -xe  # Prints the cmds as they are executed. Debug mode
+set -e  # Break out and halt script if we hit an error (default left on unless -xe selected)
+###Display colouring ##################################################################################################
+# display output options
+COLOR_1="\033[1;31m"    # Red
+COLOR_2="\033[1;32m"    # Green, lines and 'good' text.
+COLOR_3="\033[1;35m"    # cyan
+COLOR_4="\033[1;33m"	# Yellow
+NOCOLOR="\033[0m"
+LINE="#===========================================================================#"
+STEP_COMPLETE=" [*] Step Complete"
+START_OF_UPDATE=$(date +'%I:%M:%S%p %d/%m/%Y')
+### FAILSAFE ##########################################################################################################
+# fail safe, comment out to arm the script.
+echo -e "${COLOR_1}[*] Failsafe is active${NOCOLOR} : script disabled. 'Check script at line 29'." && exit 1
+#######################################################################################################################
+
+
+function logo(){
+    echo -e "${COLOR_3}${LINE}${NOCOLOR}"
+    echo -e "${COLOR_1}   _____                              __  __          __      __          "
+    echo -e "${COLOR_2}  / ___/___  ______   _____  _____   / / / ____  ____/ ____ _/ /____      "
+    echo -e "${COLOR_3}  \__ \/ _ \/ ___| | / / _ \/ ___/  / / / / __ \/ __  / __  / __/ _ \     "
+    echo -e "${COLOR_4} ___/ /  __/ /   | |/ /  __/ /     / /_/ / /_/ / /_/ / /_/ / /_/  __/     "
+    echo -e "${COLOR_1}/____/\___/_/    |___/\___/_/      \____/ .___/\__,_/\__,_/\__/\___/      "
+    echo -e "${COLOR_2}                                       /_/ By Paul Abel                   "
+}
+
+
+function setup_log(){
+    datetime=$(date +"%Y%m%d_%H%M%S")
+    mkdir -p /home/rundeck/updatelogs/
+    touch "/home/rundeck/updatelogs/${datetime}.txt"
+    logfile="/home/rundeck/updatelogs/${datetime}.txt"
+    sudo echo "[*] Update started : $(date) : ITOPS Ticket : @option.TicketReference@" >> /home/rundeck/updatelogs/mini_update_log.txt
+}
+
+
+function header(){
+    echo -e "${COLOR_3}${LINE}${NOCOLOR}"
+    echo  " === New Server === "
+    echo  "  Date: ${START_OF_UPDATE} : Ticket Reference:   @option.TicketReference@ "
+    echo  "  Host: $(hostname) "
+    echo  "  IP: $(hostname -I) "
+    echo -e "${COLOR_3}${LINE}"
+    echo -e "${COLOR_2} [*] Logging set to: Active : ${logfile}"
+}
+
+
+function memcheck() {
+    echo -e "${COLOR_2} [*] Running server memory availability test"
+    ServerMemoryAvailable="$(free -m | grep -i 'mem' | awk '{print$7}')"   # This should return in MB how much memory
+    message=" Available memory: $ServerMemoryAvailable MB"
+    # is available.
+    if [[ $ServerMemoryAvailable -lt 200 ]]  # set at 200MB
+    then
+    	echo -e "${COLOR_1} [X]${message} : TEST FAILED : 'Less than 200MB available'"
+    	echo -e " [X] Exiting Script"
+        echo -e "${COLOR_3}${LINE}${NOCOLOR}"
+        exit 1
+    else
+	    echo -e "${COLOR_2} [*]${message} : TEST PASSED"
+        os_selection  # Now we go to this function
+    fi
+}
+
+
+function list_failed_services(){
+
+    echo -e "${COLOR_3}${LINE}${NOCOLOR}"
+    echo -e "Check: ${COLOR_2}List current failed services"
+    echo -e "${COLOR_3}${LINE}${NOCOLOR}"
+    systemctl list-units --failed
+    echo -e "${COLOR_2}${STEP_COMPLETE}"
+    echo
+}
+
+
+function os_selection() {
+    if [[ $(uname -s) == "Linux" ]]; then
+        if [[ -e /etc/lsb-release ]]; then
+            . /etc/lsb-release
+            if [[ $DISTRIB_ID == "Ubuntu" ]]; then
+            	# call Ubuntu function
+                echo -e "${COLOR_2} [*] Server identifying as Ubuntu OS${NOCOLOR}"
+                ubuntu_hostcheck
+            else  # call non-Ubuntu function
+                echo -e "${COLOR_2} [*] Server identifying as non Ubuntu OS${NOCOLOR}"
+                echo -e "${COLOR_2} [*] Switching to CentOS functions${NOCOLOR}"
+                cent_os_hostcheck
+                fi
+        else  # call non-Ubuntu function
+        echo -e "${COLOR_2} [*] Server identifying as non Ubuntu OS${NOCOLOR}"
+        echo -e "${COLOR_2} [*] Switching to CentOS functions${NOCOLOR}"
+        cent_os_hostcheck
+        fi
+    else  # call non-Linux function
+    echo -e "${COLOR_1} [X] Server is not running a Linux OS"
+    echo " [X] Non-Linux Server Identified"
+    echo " [X] Stopping Script ${NOCOLOR}"
+    exit 1
+fi
+}
+
+
+function ubuntu_hostcheck(){
+    case "$(hostname)" in
+        *mongodb)
+        echo -e "${COLOR_2} [*] Mongodb server detected, holding update packages for Mongodb and PHP"
+        sudo apt-mark hold mongodb*
+        sudo apt-mark hold php*
+        ;;
+        *db[1-9])
+        echo -e "${COLOR_2} [*] mySQL db server detected, holding update packages for Mariadb and PHP"
+        sudo apt-mark hold mariadb*
+        sudo apt-mark hold php*
+        ;;
+        *queue[1-9])
+        echo -e "${COLOR_2} [*] Queue server detected, holding update packages for erlang, rabbitmq and PHP"
+        sudo apt-mark hold erlang* rabbitmq*
+        sudo apt-mark hold php*
+
+        ;;
+        *)  # else?
+        echo -e "${COLOR_2} [*] Currently No marked holds for server detected except PHP, holding back PHP"
+        sudo apt-mark hold php*
+        ;;
+    esac
+    echo -e "${COLOR_2}${STEP_COMPLETE}"
+    echo
+    ubuntu_choice  # Now move to this func. is my logging covering this? check
+}
+
+
+function ubuntu_choice(){
+    export DEBIAN_FRONTEND=noninteractive
+    list_failed_services
+
+    echo -e "${COLOR_3}${LINE}${NOCOLOR}"
+    echo -e "Step 1: ${COLOR_2}Pre-configuring Packages"
+    echo -e "${COLOR_3}${LINE}${NOCOLOR}"
+    sudo yes yes | sudo dpkg --configure -a
+    echo -e "${COLOR_2}${STEP_COMPLETE}"
+    echo
+
+    echo -e "${COLOR_3}${LINE}${NOCOLOR}"
+    echo -e "Step 2: ${COLOR_2}Fix and attempt to correct a system with broken dependencies"
+    echo -e "${COLOR_3}${LINE}${NOCOLOR}"
+    sudo apt-get install -f -y
+    echo -e "${COLOR_2}${STEP_COMPLETE}"
+    echo
+
+    echo -e "${COLOR_3}${LINE}${NOCOLOR}"
+    echo -e "Step 3: ${COLOR_2}Update apt cache"
+    echo -e "${COLOR_3}${LINE}${NOCOLOR}"
+    sudo apt-get update -y
+    echo -e "${COLOR_2}${STEP_COMPLETE}"
+    echo
+
+    echo -e "${COLOR_3}${LINE}${NOCOLOR}"
+    echo -e "Step 4: ${COLOR_2}Upgrade packages"
+    echo -e "${COLOR_3}${LINE}${NOCOLOR}"
+    sudo /usr/bin/apt-get -y -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold upgrade --with-new-pkgs
+    #sudo apt-get upgrade -y
+    echo -e "${COLOR_2}${STEP_COMPLETE}"
+    echo
+
+    echo -e "${COLOR_3}${LINE}${NOCOLOR}"
+    echo -e "Step 5: ${COLOR_2}Distribution upgrade"
+    echo -e "${COLOR_3}${LINE}${NOCOLOR}"
+    sudo apt-get dist-upgrade -y
+    echo -e "${COLOR_2}${STEP_COMPLETE}"
+    echo
+
+    echo -e "${COLOR_3}${LINE}${NOCOLOR}"
+    echo -e "Step 6: ${COLOR_2}Remove unused packages"
+    echo -e "${COLOR_3}${LINE}${NOCOLOR}"
+    sudo apt-get --purge autoremove -y
+    echo -e "${COLOR_2}${STEP_COMPLETE}"
+    echo
+
+    echo -e "${COLOR_3}${LINE}${NOCOLOR}"
+    echo -e "Step 7: ${COLOR_2}Clean up"
+    echo -e "${COLOR_3}${LINE}${NOCOLOR}"
+    sudo apt-get autoclean -y
+    echo -e "${COLOR_2}${STEP_COMPLETE}"
+    echo
+    list_failed_services
+    footer
+}
+
+
+function cent_os_hostcheck(){
+    case "$(hostname)" in
+        *mongodb)
+        echo -e "${COLOR_2} [*] Mongodb server detected, holding update packages for Mongodb and PHP"
+        export repo=" -x mongodb* -x php*"
+        ;;
+        *db[1-9])
+        echo -e "${COLOR_2} [*] mySQL db server detected, holding update packages for Mariadb, galera and PHP"
+        export repo="-x mariadb* -x galera* -x php*"
+        ;;
+        *queue[1-9])
+        echo -e "${COLOR_2} [*] Queue server detected, holding update packages for erlang, rabbitmq and PHP"
+        export repo="-x erlang* -x rabbitmq* -x php*"
+        ;;
+        *)  # else?
+        echo -e "${COLOR_2} [*] Currently No marked holds for server detected except PHP, holding back PHP"
+        export repo="-x php* -x mongodb*"
+        ;;
+    esac
+    echo -e "${COLOR_2}${STEP_COMPLETE}"
+    echo
+    cent_os_choice  # Now move to this func. is my logging covering this? check
+}
+
+
+function cent_os_choice(){
+    PATH=/sbin:/bin:/usr/sbin:/usr/bin
+    list_failed_services
+    echo
+    echo -e "${COLOR_3}${LINE}${NOCOLOR}"
+    echo -e "Step 1: ${COLOR_2}Run update and skip broken packages"
+    echo -e "${COLOR_3}${LINE}${NOCOLOR}"
+    sudo yum -y "$repo" update --skip-broken
+    echo -e "${COLOR_2}${STEP_COMPLETE}"
+    echo
+    list_failed_services
+    footer
+}
+
+
+function footer(){
+    end_time=$(date +'%I:%M:%S%p %d/%m/%Y')
+    echo -e "${COLOR_3}${LINE}${NOCOLOR}"
+    echo -e " === Finished ==="
+    echo -e "START Date: ${START_OF_UPDATE} "
+    echo -e "END Date:   ${end_time}"
+    echo -e "${COLOR_3}${LINE}${NOCOLOR}"
+    sudo echo "[*] Update Ended :   $(date) : ITOPS Ticket : @option.TicketReference@" >> /home/rundeck/updatelogs/mini_update_log.txt
+    sudo echo "${LINE}" >> /home/rundeck/updatelogs/mini_update_log.txt
+}
+
+
+#play
+setup_log                        # start logging
+logo | tee -a "${logfile}"       # Print logo to make easy to find start of server
+header | tee -a "${logfile}"       # Write our header
+memcheck  | tee -a "${logfile}"    # start of our process
