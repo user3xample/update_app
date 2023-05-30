@@ -1,14 +1,15 @@
 #! /usr/bin/env bash
 #==============================================================================#
 # title             :  update and upgrade
-# description       : Script to update and patch servers.
+# description       : Script to update and patch servers or pc's
 # author            : Paul Abel
 # date              : 30/05/2023
 # version           : 2.0
 # usage             : ./main
 # notes             : In Development.
 # bash_version      : 5.0.17(1)-release
-# licence           :
+# licence           : GNU General Public License v3.0 
+#		     https://github.com/user3xample/updater/blob/main/LICENSE
 #==============================================================================#
 
 ### DEBUG
