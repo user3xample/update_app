@@ -1,15 +1,16 @@
 #! /usr/bin/env bash
 #==============================================================================#
-# title             :  update app
+# title             : update_app
+# Git               :
 # description       : Script to update and patch servers or pc's
 # author            : Paul Abel
 # date              : 30/05/2023
 # version           : 2.0
-# usage             : ./main
-# notes             : In Development.
+# usage             : sudo ./update_app.sh
+# notes             : In development.
 # bash_version      : 5.0.17(1)-release
 # licence           : GNU General Public License v3.0 
-#		                https://github.com/user3xample/updater/blob/main/LICENSE
+#		                  https://github.com/user3xample/updater/blob/main/LICENSE
 #==============================================================================#
 ### DEBUG
 #set -xe  # Prints the cmds as they are executed. Debug mode
@@ -29,7 +30,7 @@ START_OF_UPDATE=$(date +'%I:%M:%S %p %d/%m/%Y')
 echo -e "${COLOR_1}[X] Failsafe is active${NOCOLOR} : script disabled. 'Check script at line 29'." && exit 1
 #######################################################################################################################
 if [ "$EUID" -ne 0 ]  # force running as root.
-    then echo -e "${COLOR_1}\n [X] Required to be run as 'root'.\n\n${COLOR_2}[CORRECT WAY] 'sudo ./updateapp.sh'"
+    then echo -e "${COLOR_1}\n [X] Required to be run as 'root'.\n\n${COLOR_2}[CORRECT WAY] 'sudo ./update_app.sh'"
     echo -e "\n${COLOR_4} [*] Please try again.${NOCOLOR}"
   exit
 fi
@@ -141,7 +142,7 @@ function footer(){
     echo -e "START Date: ${START_OF_UPDATE} "
     echo -e "END Date:   ${END_TIME}"
     echo -e "${COLOR_3}${LINE}${NOCOLOR}"
-    sudo echo "[*] Update Ended :   ${END_TIME}" >> /home/update/updatelogs/mini_timeline.log
+    sudo echo "[*] Update Ended :   $(date)" >> /home/update/updatelogs/mini_timeline.log
     sudo echo "${LINE}" >> /home/update/updatelogs/mini_timeline.log
 }
 
