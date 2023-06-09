@@ -1,7 +1,7 @@
 #! /usr/bin/env bash
 #==============================================================================#
 # title             : update_app
-# Git               :
+# Git               : https://github.com/user3xample/update_app
 # description       : Script to update and patch servers or pc's
 # author            : Paul Abel
 # date              : 30/05/2023
