@@ -26,9 +26,13 @@ STEP_COMPLETE=" [*] Step Complete"
 START_OF_UPDATE=$(date +'%I:%M:%S %p %d/%m/%Y')
 ### FAILSAFE ##########################################################################################################
 # fail safe, comment out to arm the script.
-echo -e "${COLOR_1}[*] Failsafe is active${NOCOLOR} : script disabled. 'Check script at line 29'." && exit 1
+echo -e "${COLOR_1}[X] Failsafe is active${NOCOLOR} : script disabled. 'Check script at line 29'." && exit 1
 #######################################################################################################################
-
+if [ "$EUID" -ne 0 ]  # force running as root.
+    then echo -e "${COLOR_1}\n [X] Required to be run as 'root'.\n\n${COLOR_2}[CORRECT WAY] 'sudo ./updateapp.sh'"
+    echo -e "\n${COLOR_4} [*] Please try again.${NOCOLOR}"
+  exit
+fi
 
 function logo(){
     echo -e "${COLOR_3}${LINE}${NOCOLOR}"
@@ -130,29 +134,14 @@ function debian_updater(){
 }
 
 
-#function cent_os_update(){  # You can use this if you want to do centOS
-#    PATH=/sbin:/bin:/usr/sbin:/usr/bin
-#    list_failed_services
-#    echo
-#    echo -e "${COLOR_3}${LINE}${NOCOLOR}"
-#    echo -e "Step 1: ${COLOR_2}Run update and skip broken packages"
-#    echo -e "${COLOR_3}${LINE}${NOCOLOR}"
-#    sudo yum -y "$repo" update --skip-broken
-#    echo -e "${COLOR_2}${STEP_COMPLETE}"
-#    echo
-#    list_failed_services
-#    footer
-#}
-
-
 function footer(){
-    end_time=$(date +'%I:%M:%S %p %d/%m/%Y')
+    END_TIME=$(date +'%I:%M:%S %p %d/%m/%Y')
     echo -e "${COLOR_3}${LINE}${NOCOLOR}"
-    echo -e " === Finished ==="
+    echo    " === Finished ==="
     echo -e "START Date: ${START_OF_UPDATE} "
-    echo -e "END Date:   ${end_time}"
+    echo -e "END Date:   ${END_TIME}"
     echo -e "${COLOR_3}${LINE}${NOCOLOR}"
-    sudo echo "[*] Update Ended :   $(date)" >> /home/update/updatelogs/mini_timeline.log
+    sudo echo "[*] Update Ended :   ${END_TIME}" >> /home/update/updatelogs/mini_timeline.log
     sudo echo "${LINE}" >> /home/update/updatelogs/mini_timeline.log
 }
 
