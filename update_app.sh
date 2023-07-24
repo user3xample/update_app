@@ -9,12 +9,12 @@
 # usage             : sudo ./update_app.sh
 # notes             : In development.
 # bash_version      : 5.0.17(1)-release
-# licence           : GNU General Public License v3.0 
+# licence           : GNU General Public License v3.0
 #		                  https://github.com/user3xample/updater/blob/main/LICENSE
 #==============================================================================#
 ### DEBUG
 #set -xe  # Prints the cmds as they are executed. Debug mode
-set -e  # Break out and halt script if we hit an error (default left on unless -xe selected)
+#set -e  # Break out and halt script if we hit an error (default left on unless -xe selected)
 ###Display colouring ##################################################################################################
 # display output options
 COLOR_1="\033[1;31m"    # Red
@@ -24,14 +24,15 @@ COLOR_4="\033[1;33m"	  # Yellow
 NOCOLOR="\033[0m"
 LINE="#===========================================================================#"
 STEP_COMPLETE=" [*] Step Complete"
+START_OF_UPDATE=$(date +'%I:%M:%S %p %d/%m/%Y')
 # Options
-SEND_EMAIL=true
+SEND_EMAIL=False
 EMAIL_ADDRESS="example@mail.com"
 ### FAILSAFE ##########################################################################################################
 # fail safe, comment out line 30 to arm the script.
-echo -e \
-"${COLOR_1}\n[--ALERT--]\n${COLOR_1}[X] Failsafe is active${NOCOLOR} : script disabled. 'Check script at line 30'."\
- && exit 1
+#echo -e \
+#"${COLOR_1}\n[--ALERT--]\n${COLOR_1}[X] Failsafe is active${NOCOLOR} : script disabled. 'Check script at line 30'."\
+# && exit 1
 #######################################################################################################################
 if [ "$EUID" -ne 0 ]  # force running as root.
     then echo -e "${COLOR_1}\n[--ALERT--]"
@@ -57,7 +58,7 @@ function setup_log(){
     touch "/home/update/updatelogs/${datetime}_update.log"
     touch "/home/update/updatelogs/mini_timeline.log"
     logfile="/home/update/updatelogs/${datetime}_update.log"
-    sudo echo "[*] Update started : $(date +'%I:%M:%S %p %d/%m/%Y')" >> /home/update/updatelogs/mini_timeline.log
+    sudo echo "[*] Update started : ${START_OF_UPDATE}" >> /home/update/updatelogs/mini_timeline.log
 }
 
 
@@ -77,13 +78,13 @@ function list_failed_services(){
     echo -e "Check: ${COLOR_2}List current failed services"
     echo -e "${COLOR_3}${LINE}${NOCOLOR}"
     systemctl list-units --failed
-    echo -e "${COLOR_2}${STEP_COMPLETE}"
-    echo
+
 }
 
 
 function debian_updater(){
     export DEBIAN_FRONTEND=noninteractive
+
     list_failed_services
     complete= echo -e "${COLOR_2}${STEP_COMPLETE}\n"
 
@@ -140,24 +141,24 @@ function footer(){
     echo -e "START Date: ${START_OF_UPDATE} "
     echo -e "END Date:   ${END_TIME}"
     echo -e "${COLOR_3}${LINE}${NOCOLOR}"
-    sudo echo "[*] Update Ended :   $(date)" >> /home/update/updatelogs/mini_timeline.log
+    sudo echo "[*] Update Ended :   ${END_TIME}" >> /home/update/updatelogs/mini_timeline.log
     sudo echo "${LINE}" >> /home/update/updatelogs/mini_timeline.log
     send_email ${logfile} ${EMAIL_ADDRESS}
 }
 
 
-send_email() {
+send_email() {  # Still working on to make work right.
     if [ "$SEND_EMAIL" = true ]; then
         echo "[*] Sending log email..."
         echo "Subject: Email with attachment" | cat - $1 | sendmail -t $2
     else
-        echo "Email not sent."
+        echo "[X] Email not sent as requested."
     fi
 }
 
 
 #play
-setup_log                        # start logging
-logo | tee -a "${logfile}"       # Print logo to make easy to find start of server
-header | tee -a "${logfile}"       # Write our header
-debian_updater  | tee -a "${logfile}"    # start of our process
+setup_log                                 # start logging
+logo | tee -a "${logfile}"                # Print logo
+header | tee -a "${logfile}"              # Write our header
+debian_updater  | tee -a "${logfile}"     # start of our process
