@@ -24,13 +24,18 @@ COLOR_4="\033[1;33m"	  # Yellow
 NOCOLOR="\033[0m"
 LINE="#===========================================================================#"
 STEP_COMPLETE=" [*] Step Complete"
-START_OF_UPDATE=$(date +'%I:%M:%S %p %d/%m/%Y')
+# Options
+SEND_EMAIL=true
+EMAIL_ADDRESS="example@mail.com"
 ### FAILSAFE ##########################################################################################################
-# fail safe, comment out to arm the script.
-echo -e "${COLOR_1}[X] Failsafe is active${NOCOLOR} : script disabled. 'Check script at line 29'." && exit 1
+# fail safe, comment out line 30 to arm the script.
+echo -e \
+"${COLOR_1}\n[--ALERT--]\n${COLOR_1}[X] Failsafe is active${NOCOLOR} : script disabled. 'Check script at line 30'."\
+ && exit 1
 #######################################################################################################################
 if [ "$EUID" -ne 0 ]  # force running as root.
-    then echo -e "${COLOR_1}\n [X] Required to be run as 'root'.\n\n${COLOR_2}[CORRECT WAY] 'sudo ./update_app.sh'"
+    then echo -e "${COLOR_1}\n[--ALERT--]"
+    echo -e "${COLOR_1}\n [X] Required to be run as 'root'.\n\n${COLOR_2}[CORRECT WAY] 'sudo ./update_app.sh'"
     echo -e "\n${COLOR_4} [*] Please try again.${NOCOLOR}"
   exit
 fi
@@ -42,7 +47,7 @@ function logo(){
     echo -e "${COLOR_3} / / / / __ \/ __  / __  / __/ _ \   / __  / __ \/ __ \   "
     echo -e "${COLOR_4}/ /_/ / /_/ / /_/ / /_/ / /_/  __/  / /_/ / /_/ / /_/ /   "
     echo -e "${COLOR_1}\____/ .___/\__,_/\__,_/\__/\___/   \__,_/ .___/ .___/    "
-    echo -e "${COLOR_2}    /_/                                 /_/   /_/         "
+    echo -e "${COLOR_2}    /_/  By User3xample                 /_/   /_/         "
 }
 
 
@@ -50,15 +55,14 @@ function setup_log(){
     datetime=$(date +"%Y%m%d_%H%M%S")
     sudo mkdir -p /home/update/updatelogs/
     touch "/home/update/updatelogs/${datetime}_update.log"
+    touch "/home/update/updatelogs/mini_timeline.log"
     logfile="/home/update/updatelogs/${datetime}_update.log"
-    sudo echo "[*] Update started : $(date) : ITOPS Ticket : @option.TicketReference@"\
-     >> /home/update/updatelogs/mini_timeline.log
+    sudo echo "[*] Update started : $(date +'%I:%M:%S %p %d/%m/%Y')" >> /home/update/updatelogs/mini_timeline.log
 }
 
 
 function header(){
     echo -e "${COLOR_3}${LINE}${NOCOLOR}"
-    echo  " === New Server === "
     echo  "  Date: ${START_OF_UPDATE} "
     echo  "  Host: $(hostname) "
     echo  "  IP: $(hostname -I) "
@@ -81,55 +85,49 @@ function list_failed_services(){
 function debian_updater(){
     export DEBIAN_FRONTEND=noninteractive
     list_failed_services
+    complete= echo -e "${COLOR_2}${STEP_COMPLETE}\n"
 
     echo -e "${COLOR_3}${LINE}${NOCOLOR}"
     echo -e "Step 1: ${COLOR_2}Pre-configuring Packages"
     echo -e "${COLOR_3}${LINE}${NOCOLOR}"
     sudo yes yes | sudo dpkg --configure -a
-    echo -e "${COLOR_2}${STEP_COMPLETE}"
-    echo
+    complete
 
     echo -e "${COLOR_3}${LINE}${NOCOLOR}"
     echo -e "Step 2: ${COLOR_2}Fix and attempt to correct a system with broken dependencies"
     echo -e "${COLOR_3}${LINE}${NOCOLOR}"
     sudo apt-get install -f -y
-    echo -e "${COLOR_2}${STEP_COMPLETE}"
-    echo
+    complete
 
     echo -e "${COLOR_3}${LINE}${NOCOLOR}"
     echo -e "Step 3: ${COLOR_2}Update apt cache"
     echo -e "${COLOR_3}${LINE}${NOCOLOR}"
     sudo apt-get update -y
-    echo -e "${COLOR_2}${STEP_COMPLETE}"
-    echo
+    complete
 
     echo -e "${COLOR_3}${LINE}${NOCOLOR}"
     echo -e "Step 4: ${COLOR_2}Upgrade packages"
     echo -e "${COLOR_3}${LINE}${NOCOLOR}"
     sudo apt-get upgrade -y
-    echo -e "${COLOR_2}${STEP_COMPLETE}"
-    echo
+    complete
 
     echo -e "${COLOR_3}${LINE}${NOCOLOR}"
     echo -e "Step 5: ${COLOR_2}Distribution upgrade"
     echo -e "${COLOR_3}${LINE}${NOCOLOR}"
     sudo apt-get dist-upgrade -y
-    echo -e "${COLOR_2}${STEP_COMPLETE}"
-    echo
+    complete
 
     echo -e "${COLOR_3}${LINE}${NOCOLOR}"
     echo -e "Step 6: ${COLOR_2}Remove unused packages"
     echo -e "${COLOR_3}${LINE}${NOCOLOR}"
     sudo apt-get --purge autoremove -y
-    echo -e "${COLOR_2}${STEP_COMPLETE}"
-    echo
+    complete
 
     echo -e "${COLOR_3}${LINE}${NOCOLOR}"
     echo -e "Step 7: ${COLOR_2}Clean up"
     echo -e "${COLOR_3}${LINE}${NOCOLOR}"
     sudo apt-get autoclean -y
-    echo -e "${COLOR_2}${STEP_COMPLETE}"
-    echo
+    complete
     list_failed_services
     footer
 }
@@ -144,6 +142,17 @@ function footer(){
     echo -e "${COLOR_3}${LINE}${NOCOLOR}"
     sudo echo "[*] Update Ended :   $(date)" >> /home/update/updatelogs/mini_timeline.log
     sudo echo "${LINE}" >> /home/update/updatelogs/mini_timeline.log
+    send_email ${logfile} ${EMAIL_ADDRESS}
+}
+
+
+send_email() {
+    if [ "$SEND_EMAIL" = true ]; then
+        echo "[*] Sending log email..."
+        echo "Subject: Email with attachment" | cat - $1 | sendmail -t $2
+    else
+        echo "Email not sent."
+    fi
 }
 
 
